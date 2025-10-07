@@ -8,9 +8,10 @@
 
 This module implements a chatbot using Google's Gemini Multimodal Live model.
 It includes:
-- Real-time audio/video interaction
-- Screen sharing analysis for location guessing
-- Speech-to-speech model with visual reasoning
+
+- Real-time audio/video interaction through Daily
+- Animated robot avatar
+- Speech-to-speech model
 
 The bot runs as part of a pipeline that processes audio/video frames and manages
 the conversation flow using Gemini's streaming capabilities.
@@ -85,11 +86,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     ]
 
     # Set up conversation context and management
-    # The context aggregator will automatically collect conversation context
+
+    # The context_aggregator will automatically collect conversation context
     context = OpenAILLMContext(messages)
     context_aggregator = llm.create_context_aggregator(context)
 
+    #
     # RTVI events for Pipecat client UI
+    #
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
     pipeline = Pipeline(
@@ -115,7 +119,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     @rtvi.event_handler("on_client_ready")
     async def on_client_ready(rtvi):
         await rtvi.set_bot_ready()
-        # Start the conversation with initial message
+        # Kick off the conversation
         await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_connected")
