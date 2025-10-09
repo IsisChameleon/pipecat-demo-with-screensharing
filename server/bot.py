@@ -9,9 +9,9 @@
 This module implements a chatbot using Google's Gemini Multimodal Live model.
 It includes:
 
-- Real-time audio/video interaction through Daily
-- Animated robot avatar
-- Speech-to-speech model
+- Real-time audio/video interaction
+- Screen sharing analysis for location guessing
+- Speech-to-speech model with visual reasoning
 
 The bot runs as part of a pipeline that processes audio/video frames and manages
 the conversation flow using Gemini's streaming capabilities.
@@ -73,8 +73,6 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         api_key=os.getenv("GOOGLE_API_KEY"),
         model="models/gemini-2.5-flash-native-audio-preview-09-2025",
         voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
-        transcribe_user_audio=True,
-        transcribe_model_audio=True,
         system_instruction=SYSTEM_INSTRUCTION,
     )
 
@@ -86,14 +84,11 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     ]
 
     # Set up conversation context and management
-
-    # The context_aggregator will automatically collect conversation context
+    # The context aggregator will automatically collect conversation context
     context = OpenAILLMContext(messages)
     context_aggregator = llm.create_context_aggregator(context)
 
-    #
     # RTVI events for Pipecat client UI
-    #
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
     pipeline = Pipeline(
@@ -119,14 +114,13 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     @rtvi.event_handler("on_client_ready")
     async def on_client_ready(rtvi):
         await rtvi.set_bot_ready()
-        # Kick off the conversation
-        await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, participant):
         logger.info(f"Client connected")
         await transport.capture_participant_video(participant["id"], 1, "camera")
         await transport.capture_participant_video(participant["id"], 1, "screenVideo")
+        # Start the conversation with initial message
         await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
@@ -142,25 +136,23 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 async def bot(runner_args: RunnerArguments):
     """Main bot entry point for the bot starter."""
 
+    # Krisp is available when deployed to Pipecat Cloud
+    if os.environ.get("ENV") != "local":
+        from pipecat.audio.filters.krisp_filter import KrispFilter
+
+        krisp_filter = KrispFilter()
+    else:
+        krisp_filter = None
+
     transport_params = {
         "daily": lambda: DailyParams(
             audio_in_enabled=True,
+            audio_in_filter=krisp_filter,
             audio_out_enabled=True,
             video_in_enabled=True,
-            video_out_enabled=True,
-            video_out_is_live=True,
             vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
             turn_analyzer=LocalSmartTurnAnalyzerV3(),
-        ),
-        "webrtc": lambda: TransportParams(
-            audio_in_enabled=True,
-            audio_out_enabled=True,
-            video_in_enabled=True,
-            video_out_enabled=True,
-            video_out_is_live=True,
-            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
-            turn_analyzer=LocalSmartTurnAnalyzerV3(),
-        ),
+        )
     }
 
     transport = await create_transport(runner_args, transport_params)
