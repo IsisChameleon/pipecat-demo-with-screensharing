@@ -35,7 +35,7 @@ cd server
 cp env.example .env
 # Edit .env and set DAILY_SAMPLE_ROOM_URL
 uv sync
-uv run bot.py
+uv run bot.py -d
 ```
 
 This starts the local WebRTC server. Keep it running.
