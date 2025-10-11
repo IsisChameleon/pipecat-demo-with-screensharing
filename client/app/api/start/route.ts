@@ -1,43 +1,45 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
 export async function POST() {
-  const startUrl = process.env.PCC_START_URL;
-  const apiToken = process.env.PCC_API_KEY;
-
-  if (!startUrl || !apiToken) {
-    return NextResponse.json(
-      { error: "Missing PCC_START_URL or PCC_API_KEY env vars" },
-      { status: 500 }
-    );
-  }
+  // Use BOT_START_URL from environment or fallback to localhost
+  const botStartUrl =
+    process.env.BOT_START_URL || 'http://localhost:7860/start';
 
   try {
-    const response = await fetch(startUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify({ createDailyRoom: true }),
-    });
+    // Prepare headers - make API key optional
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
 
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Failed to start agent", details: data },
-        { status: response.status }
-      );
+    // Only add Authorization header if API key is provided
+    if (process.env.BOT_START_PUBLIC_API_KEY) {
+      headers.Authorization = `Bearer ${process.env.BOT_START_PUBLIC_API_KEY}`;
     }
 
-    return NextResponse.json(data, { status: 200 });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const response = await fetch(botStartUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        createDailyRoom: true,
+        dailyRoomProperties: { start_video_off: true },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to connect to Pipecat: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
     return NextResponse.json(
-      { error: "Request failed", message },
+      { error: `Failed to process connection request: ${error}` },
       { status: 500 }
     );
   }
 }
-
-

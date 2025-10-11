@@ -27,7 +27,7 @@ A Pipecat server implementing Google's Gemini Live Multimodal model for real-tim
 
 3. **Run the bot**:
    ```bash
-   uv run bot.py -d
+   uv run bot.py --transport daily
    ```
 
 ## Required API Keys

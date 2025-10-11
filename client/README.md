@@ -23,7 +23,7 @@ A Next.js application showcasing screensharing with the Voice UI Kit and Gemini 
 
    ```bash
    cp env.example .env.local
-   # Edit .env.local with your Daily room URL or Pipecat Cloud credentials
+   # Edit .env.local to connect to your bot deployed on Pipecat Cloud
    ```
 
 3. **Start development server**:
@@ -38,19 +38,15 @@ A Next.js application showcasing screensharing with the Voice UI Kit and Gemini 
 
 ### Local Development
 
-Set your Daily room URL in `.env.local`:
-
-```bash
-NEXT_PUBLIC_DAILY_ROOM_URL=https://your-daily-room.daily.co/your-room
-```
+The .env.local file automatically falls back to the `http://localhost:7860/start` endpoint, which will hit the bot's built-in FastAPI server and start a room. No changes are needed.
 
 ### Pipecat Cloud Deployment
 
 Set your agent credentials in `.env.local`:
 
 ```bash
-PCC_START_URL=https://api.pipecat.daily.co/v1/public/<agent-name>/start
-PCC_API_KEY=pk_your_api_key_here
+BOT_START_URL=https://api.pipecat.daily.co/v1/public/<agent-name>/start
+BOT_START_PUBLIC_API_KEY=pk_your_api_key_here
 ```
 
 ## Usage
