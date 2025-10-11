@@ -34,8 +34,8 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
-from pipecat.services.gemini_multimodal_live.gemini import GeminiMultimodalLiveLLMService
-from pipecat.transports.base_transport import BaseTransport, TransportParams
+from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService
+from pipecat.transports.base_transport import BaseTransport
 from pipecat.transports.daily.transport import DailyParams
 
 load_dotenv(override=True)
@@ -69,7 +69,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     """
 
     # Initialize the Gemini Multimodal Live model
-    llm = GeminiMultimodalLiveLLMService(
+    llm = GeminiLiveLLMService(
         api_key=os.getenv("GOOGLE_API_KEY"),
         model="models/gemini-2.5-flash-native-audio-preview-09-2025",
         voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
