@@ -28,24 +28,23 @@ This repository demonstrates how to wire up Google Gemini with Pipecat and the P
 - A Daily room URL
 - Required API keys for the server bot (see `server/env.example`)
 
-### 1) Start the server (Pipecat bot)
+### 1. Start the server (Pipecat bot)
 
 ```bash
 cd server
 cp env.example .env
 # Edit .env and set DAILY_SAMPLE_ROOM_URL
 uv sync
-uv run bot.py -d
+uv run bot.py --transport daily
 ```
 
 This starts the local WebRTC server. Keep it running.
 
-### 2) Start the client (Next.js + Voice UI Kit)
+### 2. Start the client (Next.js + Voice UI Kit)
 
 ```bash
 cd client
 cp env.example .env.local
-# Edit .env.local and set NEXT_PUBLIC_DAILY_ROOM_URL
 npm install
 npm run dev
 ```
@@ -73,7 +72,7 @@ uv run pcc docker build-push
 uv run pcc deploy
 ```
 
-5. **Update client config**: Set `PCC_START_URL` and `PCC_API_KEY` in `client/.env.local`, remove `NEXT_PUBLIC_DAILY_ROOM_URL`, and connect from your [locally running](#2-start-the-client-nextjs--voice-ui-kit) client.
+5. **Update client config**: Set `BOT_START_URL` and `BOT_START_PUBLIC_API_KEY` in `client/.env.local` and connect from your [locally running](#2-start-the-client-nextjs--voice-ui-kit) client.
 
 ## Useful links
 
