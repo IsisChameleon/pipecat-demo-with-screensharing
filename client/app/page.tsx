@@ -1,13 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { PipecatAppBase } from "@pipecat-ai/voice-ui-kit";
+import { useState, useEffect } from 'react';
+import { PipecatAppBase } from '@pipecat-ai/voice-ui-kit';
 
-import { ClientApp } from "./ClientApp";
+import { ClientApp } from './ClientApp';
 
-import "@pipecat-ai/voice-ui-kit/styles.scoped";
-
-const connectUrl = process.env.NEXT_PUBLIC_DAILY_ROOM_URL;
+import '@pipecat-ai/voice-ui-kit/styles.scoped';
 
 export default function Home() {
   const [isMobile, setIsMobile] = useState(false);
@@ -29,32 +27,9 @@ export default function Home() {
       <div className="voice-ui-kit">
         <PipecatAppBase
           transportType="daily"
-          connectParams={
-            Boolean(connectUrl)
-              ? {
-                  room_url: connectUrl,
-                }
-              : undefined
-          }
-          startBotParams={
-            Boolean(connectUrl)
-              ? undefined
-              : {
-                  endpoint: "/api/start",
-                }
-          }
-          startBotResponseTransformer={
-            connectUrl
-              ? undefined
-              : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (response: any) => {
-                  return {
-                    room_url: response.dailyRoom,
-                    token: response.dailyToken,
-                  };
-                }
-          }
-        >
+          connectParams={{
+            endpoint: '/api/start',
+          }}>
           {({ handleConnect, handleDisconnect }) => (
             <ClientApp
               connect={handleConnect}
