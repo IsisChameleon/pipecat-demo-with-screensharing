@@ -20,6 +20,7 @@ the conversation flow using Gemini's streaming capabilities.
 import os
 
 from dotenv import load_dotenv
+from google.genai.types import ThinkingConfig
 from loguru import logger
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
 from pipecat.audio.vad.silero import SileroVADAnalyzer
@@ -34,7 +35,7 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
-from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService
+from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService, InputParams
 from pipecat.transports.base_transport import BaseTransport
 from pipecat.transports.daily.transport import DailyParams
 
@@ -71,15 +72,16 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     # Initialize the Gemini Multimodal Live model
     llm = GeminiLiveLLMService(
         api_key=os.getenv("GOOGLE_API_KEY"),
-        model="models/gemini-2.5-flash-native-audio-preview-09-2025",
+        model="gemini-2.5-flash-native-audio-preview-09-2025",
         voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
         system_instruction=SYSTEM_INSTRUCTION,
+        params=InputParams(thinking=ThinkingConfig(thinking_budget=0)),
     )
 
     messages = [
         {
             "role": "user",
-            "content": "Start by introducing yourself.",
+            "content": "Start by introducing yourself, asking the user to share their screen to start.",
         },
     ]
 
@@ -114,14 +116,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     @rtvi.event_handler("on_client_ready")
     async def on_client_ready(rtvi):
         await rtvi.set_bot_ready()
+        # Start the conversation with initial message
+        await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, participant):
         logger.info(f"Client connected")
         await transport.capture_participant_video(participant["id"], 1, "camera")
         await transport.capture_participant_video(participant["id"], 1, "screenVideo")
-        # Start the conversation with initial message
-        await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
