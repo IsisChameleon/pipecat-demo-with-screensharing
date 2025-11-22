@@ -19,15 +19,25 @@ A Pipecat server implementing Google's Gemini Live Multimodal model for real-tim
    # Edit .env with your API keys
    ```
 
-2. **Install dependencies**:
+2. **Install dependencies** (using local `.venv`):
 
    ```bash
-   uv sync
+   # Option 1: Use the helper script (recommended if UV_PROJECT_ENVIRONMENT is set globally)
+   ./uv-local.sh sync
+
+   # Option 2: Unset UV_PROJECT_ENVIRONMENT and use uv directly
+   unset UV_PROJECT_ENVIRONMENT && uv sync
+
+   # Option 3: If using direnv, it will auto-configure (see .envrc)
+   direnv allow && uv sync
    ```
 
 3. **Run the bot**:
    ```bash
-   uv run bot.py --transport daily
+   # Use the same approach as above
+   ./uv-local.sh run bot.py --transport daily
+   # OR
+   unset UV_PROJECT_ENVIRONMENT && uv run bot.py --transport daily
    ```
 
 ## Required API Keys
@@ -78,3 +88,15 @@ If you see SSL certificate errors, install certificates:
 ### Dependencies
 
 This bot requires Python 3.10+ and uses `uv` for dependency management.
+
+### Local Virtual Environment
+
+This project is configured to use a local `.venv` directory to avoid conflicts with global `uv` configurations (like those in devcontainers). 
+
+- **Helper script**: Use `./uv-local.sh` instead of `uv` to ensure local venv usage
+- **direnv**: If you use direnv, run `direnv allow` to auto-configure
+- **Manual**: Unset `UV_PROJECT_ENVIRONMENT` before running `uv` commands:
+  ```bash
+  unset UV_PROJECT_ENVIRONMENT
+  uv sync
+  ```

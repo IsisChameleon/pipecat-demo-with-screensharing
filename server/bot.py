@@ -17,11 +17,17 @@ The bot runs as part of a pipeline that processes audio/video frames and manages
 the conversation flow using Gemini's streaming capabilities.
 """
 
+import argparse
 import os
+from datetime import datetime
 
+import boto3
+from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 from google.genai.types import ThinkingConfig
 from loguru import logger
+from pipecat.adapters.schemas.function_schema import FunctionSchema
+from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
@@ -35,9 +41,16 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
+from pipecat.services.cartesia.stt import CartesiaLiveOptions as LiveOptions
+from pipecat.services.cartesia.stt import CartesiaSTTService
+from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService, InputParams
-from pipecat.transports.base_transport import BaseTransport
+from pipecat.services.llm_service import FunctionCallParams
+from pipecat.transcriptions.language import Language
+from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.daily.transport import DailyParams
+
+from prompt import thriday
 
 load_dotenv(override=True)
 
@@ -68,13 +81,37 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     - Voice activity detection
     - RTVI event handling
     """
+    stt = CartesiaSTTService(
+        api_key=os.getenv("CARTESIA_API_KEY"),
+        live_options=LiveOptions(
+            model="ink-whisper", language=Language.EN, smart_format=True
+        ),
+    )
+
+    # Try different voices by uncommenting a voice_id below:
+    # voice_id="41f3c367-e0a8-4a85-89e0-c27bae9c9b6d"  # Australian Customer Support Man (current)
+    # voice_id="694f9389-aac1-45b6-b726-9d9369183238"  # British Customer Support Woman
+    # voice_id="79a125e8-cd45-4c13-8a67-188112f4dd22"  # American Professional Woman
+    # voice_id="a0e99841-438c-4a64-b679-ae501e7d6091"  # Conversational American Man
+    # voice_id="95856005-0332-41b0-935f-352e296aa0df"  # Friendly American Woman
+    # voice_id="fb26447f-308b-471e-8b00-8e9f04284eb5"  # Calm British Man
+    # voice_id="421b3369-f63f-4b03-8980-37a44df1d4e8"  # Warm Australian Woman
+    # voice_id="726d5ae5-055f-4c3d-8355-d9677de68937"  # Professional Indian Man
+    #
+    # For voice cloning, you can clone any voice using Cartesia's voice cloning feature.
+    # Visit https://play.cartesia.ai to clone voices and get custom voice IDs.
+
+    tts = CartesiaTTSService(
+        api_key=os.getenv("CARTESIA_API_KEY"),
+        voice_id="41f3c367-e0a8-4a85-89e0-c27bae9c9b6d",  # Australian Customer Support Man
+    )
 
     # Initialize the Gemini Multimodal Live model
     llm = GeminiLiveLLMService(
         api_key=os.getenv("GOOGLE_API_KEY"),
         model="gemini-2.5-flash-native-audio-preview-09-2025",
         voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
-        system_instruction=SYSTEM_INSTRUCTION,
+        system_instruction=thriday,
         params=InputParams(thinking=ThinkingConfig(thinking_budget=0)),
     )
 

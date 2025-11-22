@@ -871,6 +871,7 @@ name = "gemini-screen-ui-kit"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "loguru" },
     { name = "pipecat-ai", extra = ["daily", "google", "local-smart-turn-v3", "runner", "silero", "webrtc"] },
     { name = "pipecatcloud" },
 ]
@@ -882,6 +883,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "loguru", specifier = ">=0.7.3" },
     { name = "pipecat-ai", extras = ["webrtc", "daily", "silero", "google", "local-smart-turn-v3", "runner"], specifier = ">=0.0.90" },
     { name = "pipecatcloud", specifier = ">=0.2.6" },
 ]
