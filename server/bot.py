@@ -43,6 +43,31 @@ from prompt import thriday
 
 load_dotenv(override=True)
 
+# Initialize OpenTelemetry tracing if enabled
+# Traces will be sent to your OTEL collector (default: localhost:4317)
+# The collector should be configured to export traces to your observability backend
+# Metrics are logged via UserBotLatencyLogObserver and can also be exported via OTEL collector
+if os.getenv("ENABLE_TRACING", "false").lower() == "true":
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+    # Default endpoint matches standard OTEL collector gRPC port
+    # If your collector uses HTTP/protobuf, change to port 4318
+    otlp_endpoint = os.getenv("OTLP_ENDPOINT", "http://localhost:4317")
+    console_export = os.getenv("OTLP_CONSOLE_EXPORT", "false").lower() == "true"
+
+    exporter = OTLPSpanExporter(
+        endpoint=otlp_endpoint,
+        insecure=True,
+    )
+
+    setup_tracing(
+        service_name="pipecat-quarterzip",
+        exporter=exporter,
+        console_export=console_export,
+    )
+    logger.info(f"OpenTelemetry tracing enabled (endpoint: {otlp_endpoint})")
+    logger.info("Traces will be collected by OTEL collector and can be viewed in Grafana/Jaeger")
+
 SYSTEM_INSTRUCTION = f"""
 You are Gemini, and your task is to guess the location (city) of the map I am sharing.
 I will screen-share Google Maps without labels and progressively zoom out.
@@ -107,13 +132,32 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         ]
     )
 
+    # Set up observers for debugging and monitoring
+    observers = [RTVIObserver(rtvi)]
+    
+    # Add transcription log observer to see what's being transcribed
+    if os.getenv("ENABLE_TRANSCRIPTION_LOGS", "true").lower() == "true":
+        observers.append(TranscriptionLogObserver())
+        logger.info("Transcription logging enabled")
+    
+    # Add latency observer to see performance metrics (user stopped -> bot started speaking)
+    if os.getenv("ENABLE_METRICS_LOGS", "true").lower() == "true":
+        observers.append(UserBotLatencyLogObserver())
+        logger.info("Latency metrics logging enabled")
+
     task = PipelineTask(
         pipeline,
         params=PipelineParams(
+            allow_interruptions=True,
             enable_metrics=True,
             enable_usage_metrics=True,
         ),
-        observers=[RTVIObserver(rtvi)],
+        observers=observers,
+        enable_tracing=os.getenv("ENABLE_TRACING", "false").lower() == "true",
+        enable_turn_tracking=os.getenv("ENABLE_TRACING", "false").lower() == "true",
+        conversation_id="1234567890",
+        additional_span_attributes={"username": "isabelle"}
+
     )
 
     @rtvi.event_handler("on_client_ready")

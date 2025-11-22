@@ -26,7 +26,7 @@ import {
   UserVideoControl,
 } from "@pipecat-ai/voice-ui-kit";
 import React, { useEffect, useState } from "react";
-import { Logs, MonitorOff } from "lucide-react";
+import { Heart, Logs, MonitorOff } from "lucide-react";
 import { EventStreamPanel } from "./EventStreamPanel";
 import Image from "next/image";
 
@@ -98,11 +98,21 @@ export const ClientApp: React.FC<Props> = ({
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Image src="/pipecat.svg" alt="Pipecat" width={32} height={32} />
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Pipecat + Gemini + Voice UI Kit
-              </h1>
+            <div className="flex items-center gap-3">
+              <Image src="/pipecat.svg" alt="Pipecat logo" width={32} height={32} />
+              <span className="text-xl font-semibold text-gray-900 dark:text-white">
+                Pipecat
+              </span>
+              <Heart className="h-5 w-5 text-rose-500 dark:text-rose-300" />
+              <Image
+                src="/symbol_icon_black.svg"
+                alt="Quarterzip logo"
+                width={32}
+                height={32}
+              />
+              <span className="text-xl font-semibold text-gray-900 dark:text-white">
+                Quarterzip
+              </span>
             </div>
             {!hasDisconnected && (
               <div className="flex items-center gap-4">
