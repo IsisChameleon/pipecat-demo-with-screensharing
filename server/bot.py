@@ -22,12 +22,22 @@ import os
 from dotenv import load_dotenv
 from google.genai.types import ThinkingConfig
 from loguru import logger
+from pipecat.services.openai.llm import OpenAILLMService
+
+logger.info("Loading Local Smart Turn Analyzer V3...")
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
+
+logger.info("✅ Local Smart Turn Analyzer V3 loaded")
+logger.info("Loading Silero VAD model...")
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+
+logger.info("✅ Silero VAD model loaded")
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     LLMRunFrame,
 )
+from pipecat.observers.loggers.transcription_log_observer import TranscriptionLogObserver
+from pipecat.observers.loggers.user_bot_latency_log_observer import UserBotLatencyLogObserver
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -35,9 +45,15 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
+from pipecat.services.cartesia.stt import CartesiaLiveOptions as LiveOptions
+from pipecat.services.cartesia.stt import CartesiaSTTService
+from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService, InputParams
-from pipecat.transports.base_transport import BaseTransport
+from pipecat.services.llm_service import FunctionCallParams
+from pipecat.transcriptions.language import Language
+from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.daily.transport import DailyParams
+from pipecat.utils.tracing.setup import setup_tracing
 
 from prompt import thriday
 
