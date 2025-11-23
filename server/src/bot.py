@@ -202,10 +202,12 @@ async def bot(runner_args: RunnerArguments):
     """Main bot entry point for the bot starter."""
 
     # Krisp is available when deployed to Pipecat Cloud
+    logger.info(f"Starting bot with ENV: {os.environ.get('ENV')}, runner args: {runner_args}")
     if os.environ.get("ENV") != "local":
-        from pipecat.audio.filters.krisp_filter import KrispFilter
+        from pipecat.audio.filters.krisp_viva_filter import KrispVivaFilter
 
-        krisp_filter = KrispFilter()
+        krisp_filter = KrispVivaFilter()
+        logger.info("✅ Krisp filter enabled!")
     else:
         krisp_filter = None
 
