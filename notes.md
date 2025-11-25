@@ -1,3 +1,31 @@
+# Running locally
+
+https://docs.pipecat.ai/getting-started/quickstart
+uv run bot.py --transport daily 
+
+```
+isabelleredactive@Mac server % uv run ./src/bot.py
+2025-11-25 14:42:51.636 | INFO     | pipecat:<module>:14 - ᓚᘏᗢ Pipecat 0.0.90 (Python 3.13.6 (main, Aug 14 2025, 16:07:26) [Clang 20.1.4 ]) ᓚᘏᗢ
+2025-11-25 14:43:11.246 | INFO     | __main__:<module>:28 - Loading Local Smart Turn Analyzer V3...
+None of PyTorch, TensorFlow >= 2.0, or Flax have been found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+2025-11-25 14:43:12.756 | INFO     | __main__:<module>:31 - ✅ Local Smart Turn Analyzer V3 loaded
+2025-11-25 14:43:12.756 | INFO     | __main__:<module>:32 - Loading Silero VAD model...
+2025-11-25 14:43:12.757 | INFO     | __main__:<module>:35 - ✅ Silero VAD model loaded
+/Users/isabelleredactive/src/pipecat-demo-with-screensharing/server/.venv/lib/python3.13/site-packages/pydub/utils.py:170: RuntimeWarning: Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work
+  warn("Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work", RuntimeWarning)
+
+🚀 Bot ready!
+   → Open http://localhost:7860/client in your browser
+
+Looking for dist directory at: /Users/isabelleredactive/src/pipecat-demo-with-screensharing/server/.venv/lib/python3.13/site-packages/pipecat_ai_small_webrtc_prebuilt/client/dist
+2025-11-25 14:43:31.184 | DEBUG    | pipecat.runner.run:_setup_whatsapp_routes:318 - Missing required environment variables for WhatsApp transport. Keeping it disabled.
+INFO:     Started server process [28445]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://localhost:7860 (Press CTRL+C to quit)
+```
+
+
 # Deployment with Pipecat Cloud
 
 
@@ -19,6 +47,10 @@ enable_krisp = true
 [scaling]
 	min_agents = 1
 ```
+
+## Login to pcc 
+
+ uv run pcc auth login
 
 ## Add secrets (using the secrets set name from toml file)
 
@@ -119,9 +151,4 @@ Updating deployment for agent 'pipecat-quarterzip'
 │ Note: if you have not already created a public API key (required to start a session), you can do so by running:   
 │ `pcc organizations keys create`  
 
-## Testing with Krisp
-
-`uv add 'pipecat-ai[krisp]'`
-
-add 'cmake' to dev host (My Mac)
 

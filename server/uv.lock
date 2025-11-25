@@ -894,7 +894,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "loguru" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
-    { name = "pipecat-ai", extra = ["cartesia", "daily", "google", "local-smart-turn-v3", "runner", "silero", "tracing", "webrtc"] },
+    { name = "pipecat-ai", extra = ["cartesia", "daily", "elevenlabs", "google", "local-smart-turn-v3", "runner", "silero", "tracing", "webrtc"] },
     { name = "pipecatcloud" },
 ]
 
@@ -907,7 +907,7 @@ dev = [
 requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", specifier = ">=1.38.0" },
-    { name = "pipecat-ai", extras = ["cartesia", "daily", "google", "local-smart-turn-v3", "runner", "silero", "tracing", "webrtc"], specifier = ">=0.0.90" },
+    { name = "pipecat-ai", extras = ["cartesia", "daily", "elevenlabs", "google", "local-smart-turn-v3", "runner", "silero", "tracing", "webrtc"], specifier = ">=0.0.90" },
     { name = "pipecatcloud", specifier = ">=0.2.6" },
 ]
 
@@ -2196,6 +2196,9 @@ cartesia = [
 ]
 daily = [
     { name = "daily-python" },
+]
+elevenlabs = [
+    { name = "websockets" },
 ]
 google = [
     { name = "google-cloud-speech" },
