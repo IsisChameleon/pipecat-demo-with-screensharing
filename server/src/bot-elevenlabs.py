@@ -117,120 +117,123 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     - Voice activity detection
     - RTVI event handling
     """
-
-    stt = CartesiaSTTService(
-        api_key=os.getenv("CARTESIA_API_KEY"),
-        live_options=LiveOptions(
-            model="ink-whisper", language=Language.EN, smart_format=True
-        ),
-    )
-
     
     # Initialize aiohttp session for ElevenLabs and other services
-    # Try different voices by uncommenting a voice_id below:
-    # voice_id="41f3c367-e0a8-4a85-89e0-c27bae9c9b6d"  # Australian Customer Support Man (current)
-    # voice_id="694f9389-aac1-45b6-b726-9d9369183238"  # British Customer Support Woman
-    # voice_id="79a125e8-cd45-4c13-8a67-188112f4dd22"  # American Professional Woman
-    # voice_id="a0e99841-438c-4a64-b679-ae501e7d6091"  # Conversational American Man
-    # voice_id="95856005-0332-41b0-935f-352e296aa0df"  # Friendly American Woman
-    # voice_id="fb26447f-308b-471e-8b00-8e9f04284eb5"  # Calm British Man
-    voice_id="421b3369-f63f-4b03-8980-37a44df1d4e8"  # Warm Australian Woman
-    # voice_id="726d5ae5-055f-4c3d-8355-d9677de68937"  # Professional Indian Man
-    #
-    # For voice cloning, you can clone any voice using Cartesia's voice cloning feature.
-    # Visit https://play.cartesia.ai to clone voices and get custom voice IDs.
+    async with aiohttp.ClientSession() as session:
+        # Initialize ElevenLabs STT service
+        stt = ElevenLabsSTTService(
+            api_key=os.getenv("ELEVENLABS_API_KEY"),
+            aiohttp_session=session,
+        )
 
-    tts = CartesiaTTSService(
-        api_key=os.getenv("CARTESIA_API_KEY"),
-        voice_id="41f3c367-e0a8-4a85-89e0-c27bae9c9b6d",  # Australian Customer Support Man
-    )
+        # Initialize ElevenLabs TTS service
+        tts = ElevenLabsTTSService(
+            api_key=os.getenv("ELEVENLABS_API_KEY", ""),
+            voice_id=os.getenv("ELEVENLABS_VOICE_ID", ""),
+        )
 
+        # Initialize Gemini 2.5 Flash LLM
+        llm = GoogleLLMService(
+            api_key=os.getenv("GOOGLE_API_KEY"),
+            model="gemini-2.5-flash",
+            system_instruction=heidi_1,
+        )
 
-    # Initialize Gemini 2.5 Flash LLM
-    llm = GoogleLLMService(
-        api_key=os.getenv("GOOGLE_API_KEY"),
-        model="gemini-2.5-flash",
-        system_instruction=heidi_1,
-    )
+        # llm = GeminiLLMService(
+        #     api_key=os.getenv("GOOGLE_API_KEY"),
+        #     model="gemini-2.5-flash-native-audio-preview-09-2025",
+        #     voice_id="Charon",  # Aoede, Charon, Fenrir, Kore, Puck
+        #     system_instruction=thriday,
+        #     params=InputParams(thinking=ThinkingConfig(thinking_budget=0)),
+        # )
 
-
-    messages = [
-        {
-            "role": "user",
-            "content": "Start by introducing yourself, asking the user to share their screen to start.",
-        },
-    ]
-
-    # Set up conversation context and management
-    # The context aggregator will automatically collect conversation context
-    context = OpenAILLMContext(messages)
-    context_aggregator = llm.create_context_aggregator(context)
-
-    # RTVI events for Pipecat client UI
-    rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
-
-
-    pipeline = Pipeline(
-        [
-            transport.input(),  # Transport user input
-            rtvi,
-            stt,  # ElevenLabs STT
-            context_aggregator.user(),  # User responses
-            llm,  # Gemini 2.5 Flash LLM
-            tts,  # ElevenLabs TTS
-            transport.output(),  # Transport bot output
-            context_aggregator.assistant(),  # Assistant spoken responses
+        messages = [
+            {
+                "role": "user",
+                "content": "Start by introducing yourself, asking the user to share their screen to start.",
+            },
         ]
-    )
 
-    # Set up observers for debugging and monitoring
-    observers = [RTVIObserver(rtvi)]
-    
-    # Add transcription log observer to see what's being transcribed
-    if os.getenv("ENABLE_TRANSCRIPTION_LOGS", "true").lower() == "true":
-        observers.append(TranscriptionLogObserver())
-        logger.info("Transcription logging enabled")
-    
-    # Add latency observer to see performance metrics (user stopped -> bot started speaking)
-    if os.getenv("ENABLE_METRICS_LOGS", "true").lower() == "true":
-        observers.append(UserBotLatencyLogObserver())
-        logger.info("Latency metrics logging enabled")
+        # Set up conversation context and management
+        # The context aggregator will automatically collect conversation context
+        context = OpenAILLMContext(messages)
+        context_aggregator = llm.create_context_aggregator(context)
 
-    task = PipelineTask(
-        pipeline,
-        params=PipelineParams(
-            allow_interruptions=True,
-            enable_metrics=True,
-            enable_usage_metrics=True,
-        ),
-        observers=observers,
-        enable_tracing=os.getenv("ENABLE_TRACING", "false").lower() == "true",
-        enable_turn_tracking=os.getenv("ENABLE_TRACING", "false").lower() == "true",
-        conversation_id="1234567890",
-        additional_span_attributes={"username": "isabelle"}
+        # RTVI events for Pipecat client UI
+        rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
-    )
+        # pipeline = Pipeline(
+        #     [
+        #         transport.input(),
+        #         rtvi,
+        #         context_aggregator.user(),
+        #         llm,
+        #         transport.output(),
+        #         context_aggregator.assistant(),
+        #     ]
+        # )
+        # Cascaded pipeline: STT -> LLM -> TTS
+        pipeline = Pipeline(
+            [
+                transport.input(),  # Transport user input
+                rtvi,
+                stt,  # ElevenLabs STT
+                context_aggregator.user(),  # User responses
+                llm,  # Gemini 2.5 Flash LLM
+                tts,  # ElevenLabs TTS
+                transport.output(),  # Transport bot output
+                context_aggregator.assistant(),  # Assistant spoken responses
+            ]
+        )
 
-    @rtvi.event_handler("on_client_ready")
-    async def on_client_ready(rtvi):
-        await rtvi.set_bot_ready()
-        # Start the conversation with initial message
-        await task.queue_frames([LLMRunFrame()])
+        # Set up observers for debugging and monitoring
+        observers = [RTVIObserver(rtvi)]
+        
+        # Add transcription log observer to see what's being transcribed
+        if os.getenv("ENABLE_TRANSCRIPTION_LOGS", "true").lower() == "true":
+            observers.append(TranscriptionLogObserver())
+            logger.info("Transcription logging enabled")
+        
+        # Add latency observer to see performance metrics (user stopped -> bot started speaking)
+        if os.getenv("ENABLE_METRICS_LOGS", "true").lower() == "true":
+            observers.append(UserBotLatencyLogObserver())
+            logger.info("Latency metrics logging enabled")
 
-    @transport.event_handler("on_client_connected")
-    async def on_client_connected(transport, participant):
-        logger.info(f"Client connected")
-        await transport.capture_participant_video(participant["id"], 1, "camera")
-        await transport.capture_participant_video(participant["id"], 1, "screenVideo")
+        task = PipelineTask(
+            pipeline,
+            params=PipelineParams(
+                allow_interruptions=True,
+                enable_metrics=True,
+                enable_usage_metrics=True,
+            ),
+            observers=observers,
+            enable_tracing=os.getenv("ENABLE_TRACING", "false").lower() == "true",
+            enable_turn_tracking=os.getenv("ENABLE_TRACING", "false").lower() == "true",
+            conversation_id="1234567890",
+            additional_span_attributes={"username": "isabelle"}
 
-    @transport.event_handler("on_client_disconnected")
-    async def on_client_disconnected(transport, client):
-        logger.info(f"Client disconnected")
-        await task.cancel()
+        )
 
-    runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
+        @rtvi.event_handler("on_client_ready")
+        async def on_client_ready(rtvi):
+            await rtvi.set_bot_ready()
+            # Start the conversation with initial message
+            await task.queue_frames([LLMRunFrame()])
 
-    await runner.run(task)
+        @transport.event_handler("on_client_connected")
+        async def on_client_connected(transport, participant):
+            logger.info(f"Client connected")
+            await transport.capture_participant_video(participant["id"], 1, "camera")
+            await transport.capture_participant_video(participant["id"], 1, "screenVideo")
+
+        @transport.event_handler("on_client_disconnected")
+        async def on_client_disconnected(transport, client):
+            logger.info(f"Client disconnected")
+            await task.cancel()
+
+        runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
+
+        await runner.run(task)
 
 
 async def bot(runner_args: RunnerArguments):

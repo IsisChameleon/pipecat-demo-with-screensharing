@@ -1,5 +1,5 @@
 agent_name = "pipecat-quarterzip"
-image = "isischameleon/pipecat-demo-with-screensharing:cascade-elevenlabs-gemini"
+image = "isischameleon/pipecat-demo-with-screensharing:cascade-cartesia-gemini"
 secret_set = "pipecat-demo-with-screensharing"
 agent_profile = "agent-2x"
 enable_krisp = true
