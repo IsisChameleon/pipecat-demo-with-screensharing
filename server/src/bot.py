@@ -19,6 +19,7 @@ the conversation flow using Gemini's text-based LLM capabilities.
 """
 
 import os
+import time
 import aiohttp
 
 from dotenv import load_dotenv
@@ -35,15 +36,14 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 
 logger.info("✅ Silero VAD model loaded")
 from pipecat.audio.vad.vad_analyzer import VADParams
-from pipecat.frames.frames import (
-    LLMRunFrame,
-)
+from pipecat.frames.frames import LLMRunFrame, InputImageRawFrame
 from pipecat.observers.loggers.transcription_log_observer import TranscriptionLogObserver
 from pipecat.observers.loggers.user_bot_latency_log_observer import UserBotLatencyLogObserver
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.processors.frame_processor import FrameProcessor, FrameDirection
 from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
@@ -53,16 +53,78 @@ from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.services.elevenlabs.stt import ElevenLabsSTTService
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService, InputParams
-from pipecat.services.google.llm import GoogleLLMService
+from pipecat.services.google.llm import GoogleLLMContext, GoogleLLMService
 from pipecat.services.llm_service import FunctionCallParams
 from pipecat.transcriptions.language import Language
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.daily.transport import DailyParams
 from pipecat.utils.tracing.setup import setup_tracing
 
-from prompt import heidi_1
+from prompt import latest_prompt
 
 load_dotenv(override=True)
+
+
+class ScreenFrameToContext(FrameProcessor):
+    """Samples incoming screen frames and injects them into the LLM context."""
+
+    def __init__(
+        self,
+        *,
+        context: OpenAILLMContext,
+        source_name: str = "screenVideo",
+        min_interval: float = 1.0,
+        caption: str | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self._context = context
+        self._source = source_name
+        self._min_interval = max(min_interval, 0.1)
+        self._caption = caption or "Latest shared screen"
+        self._last_emit = 0.0
+        self._last_image_index: int | None = None
+
+    async def process_frame(self, frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+
+        is_screen_frame = (
+            isinstance(frame, InputImageRawFrame)
+            and frame.transport_source == self._source
+            and frame.size
+            and frame.image
+        )
+
+        if is_screen_frame:
+            now = time.monotonic()
+            if now - self._last_emit >= self._min_interval:
+                frame_format = frame.format or "RGB"
+                try:
+                    if self._last_image_index is not None:
+                        try:
+                            self._context.messages.pop(self._last_image_index)
+                        except IndexError:
+                            logger.debug("Previous screen frame index invalid; resetting")
+                        finally:
+                            self._last_image_index = None
+
+                    self._context.add_image_frame_message(
+                        format=frame_format,
+                        size=frame.size,
+                        image=frame.image,
+                        text=self._caption,
+                    )
+                    self._last_image_index = len(self._context.messages) - 1
+                    self._last_emit = now
+                    logger.debug(
+                        "Captured screen frame (%s, %s) for LLM context",
+                        frame_format,
+                        frame.size,
+                    )
+                except Exception as exc:
+                    logger.warning(f"Failed to capture screen frame for context: {exc}")
+
+        await self.push_frame(frame, direction)
 
 # Initialize OpenTelemetry tracing if enabled
 # Traces will be sent to your OTEL collector (default: localhost:4317)
@@ -150,7 +212,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     llm = GoogleLLMService(
         api_key=os.getenv("GOOGLE_API_KEY"),
         model="gemini-2.5-flash",
-        system_instruction=heidi_1,
+        system_instruction=latest_prompt,
     )
 
 
@@ -166,6 +228,17 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     context = OpenAILLMContext(messages)
     context_aggregator = llm.create_context_aggregator(context)
 
+    try:
+        screen_frame_interval = float(os.getenv("SCREEN_FRAME_INTERVAL_SECS", "1.0"))
+    except ValueError:
+        screen_frame_interval = 1.0
+
+    screen_sampler = ScreenFrameToContext(
+        context=context,
+        source_name="screenVideo",
+        min_interval=screen_frame_interval,
+    )
+
     # RTVI events for Pipecat client UI
     rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
@@ -173,6 +246,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     pipeline = Pipeline(
         [
             transport.input(),  # Transport user input
+            screen_sampler,  # Sample screen frames into LLM context
             rtvi,
             stt,  # ElevenLabs STT
             context_aggregator.user(),  # User responses
@@ -217,11 +291,35 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         # Start the conversation with initial message
         await task.queue_frames([LLMRunFrame()])
 
+    # screen_share_state: dict[str, str] = {}
+
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, participant):
         logger.info(f"Client connected")
         await transport.capture_participant_video(participant["id"], 1, "camera")
         await transport.capture_participant_video(participant["id"], 1, "screenVideo")
+
+    # @transport.event_handler("on_participant_updated")
+    # async def on_participant_updated(transport, participant):
+    #     participant_id = participant.get("id")
+    #     screen_track = (
+    #         participant.get("tracks", {}).get("screenVideo")
+    #         if isinstance(participant.get("tracks"), dict)
+    #         else None
+    #     )
+
+    #     if not participant_id or not screen_track:
+    #         return
+
+    #     state = screen_track.get("state")
+    #     if state == screen_share_state.get(participant_id):
+    #         return
+
+    #     screen_share_state[participant_id] = state
+
+    #     if state == "playable":
+    #         logger.info("Screen share became playable; nudging LLM to analyze latest frame.")
+    #         await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
@@ -229,7 +327,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         await task.cancel()
 
     runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
-
+    logger.info("Running pipeline with PipelineParams: ", task.params)
     await runner.run(task)
 
 

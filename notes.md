@@ -1,5 +1,21 @@
 # Running locally
 
+Don't forget to check .env.local to see if this local front-end is pointing at your local or
+at the pipecat cloud
+
+```
+# The localhost address will allow you to run locally.
+# You can deploy to Pipecat Cloud by setting the BOT_START_URL
+# to your agent and then also provide your Pipecat Cloud API key.
+BOT_START_URL="http://localhost:7860/start"
+BOT_START_PUBLIC_API_KEY=""
+
+# WHen you want to point your localhost client to Pipecat CLoud
+
+# BOT_START_URL="https://api.pipecat.daily.co/v1/public/pipecat-quarterzip/start"
+# BOT_START_PUBLIC_API_KEY="pk_c7408073-19fc-4b49-b9f6-e58e3fcdfc16"
+```
+
 https://docs.pipecat.ai/getting-started/quickstart
 uv run bot.py --transport daily 
 
