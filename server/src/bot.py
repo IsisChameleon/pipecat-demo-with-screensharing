@@ -84,6 +84,7 @@ class ScreenFrameToContext(FrameProcessor):
         self._caption = caption or "Latest shared screen"
         self._last_emit = 0.0
         self._last_image_index: int | None = None
+        self._first_frame_sent = False
 
     async def process_frame(self, frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
@@ -108,12 +109,22 @@ class ScreenFrameToContext(FrameProcessor):
                         finally:
                             self._last_image_index = None
 
+                    kickoff_frame = not self._first_frame_sent
+                    frame_text = (
+                        "You can now finally see the user's screen. Please acknowledge and describe the screenshot."
+                        if kickoff_frame
+                        else self._caption
+                    )
+
                     self._context.add_image_frame_message(
                         format=frame_format,
                         size=frame.size,
                         image=frame.image,
-                        text=self._caption,
+                        text=frame_text,
                     )
+                    if kickoff_frame:
+                        self._first_frame_sent = True
+                        await self.push_frame(LLMRunFrame(), FrameDirection.DOWNSTREAM)
                     self._last_image_index = len(self._context.messages) - 1
                     self._last_emit = now
                     logger.debug(
@@ -150,24 +161,6 @@ if os.getenv("ENABLE_TRACING", "false").lower() == "true":
     )
     logger.info(f"OpenTelemetry tracing enabled (endpoint: {otlp_endpoint})")
     logger.info("Traces will be collected by OTEL collector and can be viewed in Grafana/Jaeger")
-
-SYSTEM_INSTRUCTION = f"""
-You are Gemini, and your task is to guess the location (city) of the map I am sharing.
-I will screen-share Google Maps without labels and progressively zoom out.
-At each zoom level::
-
-1) Give your single best guess of the location (city) of the map.
-2) Explain WHY using only visual cues.
-3) End with a punchy line like: “I'd drop my pin in Madrid, Spain!”
-
-Keep it concise. If uncertain, commit to your best guess anyway.
-When I zoom again, update your guess and reasoning.
-When I confirm your guess, celebrate with a punchy line!
-
-When you're wrong you're allowed to ask for a hint.
-
-When the conversation starts, introduce yourself very briefly and summarize your task really briefly.
-"""
 
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
@@ -219,7 +212,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     messages = [
         {
             "role": "user",
-            "content": "Start by introducing yourself, asking the user to share their screen to start.",
+            "content": "Hi! How are you?",
         },
     ]
 
@@ -298,28 +291,6 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
         logger.info(f"Client connected")
         await transport.capture_participant_video(participant["id"], 1, "camera")
         await transport.capture_participant_video(participant["id"], 1, "screenVideo")
-
-    # @transport.event_handler("on_participant_updated")
-    # async def on_participant_updated(transport, participant):
-    #     participant_id = participant.get("id")
-    #     screen_track = (
-    #         participant.get("tracks", {}).get("screenVideo")
-    #         if isinstance(participant.get("tracks"), dict)
-    #         else None
-    #     )
-
-    #     if not participant_id or not screen_track:
-    #         return
-
-    #     state = screen_track.get("state")
-    #     if state == screen_share_state.get(participant_id):
-    #         return
-
-    #     screen_share_state[participant_id] = state
-
-    #     if state == "playable":
-    #         logger.info("Screen share became playable; nudging LLM to analyze latest frame.")
-    #         await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
